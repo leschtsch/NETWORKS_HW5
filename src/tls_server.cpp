@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <cerrno>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
@@ -60,13 +61,13 @@ SSL* ConnectSsl(SSL_CTX* ctx, int sockfd) {
     SSL_free(ssl);
     std::exit(-1);
   }
-  
+
   if (SSL_accept(ssl) != 1) {
     ERR_print_errors_fp(stderr);
     SSL_free(ssl);
     std::exit(-1);
   }
-  
+
   std::cout << "estabilished\n";
 
   return ssl;
@@ -141,6 +142,15 @@ int CreateListenSocket(const Options& options) {
   return listenfd;
 }
 
+void KeylogCallback(const SSL* /* ssl */, const char* line) {
+  char* name = getenv("SSLKEYLOGFILE");
+  std::ofstream keylog = std::ofstream(name, std::ios::app);
+  std::cout << name<<"\n";
+  std::cout << line << "\n";
+  keylog << line << "\n";
+  // close file to save to disk
+}
+
 SSL_CTX* InitSsl(const Options& options) {
   std::cout << "initializing ssl context\n";
 
@@ -153,6 +163,8 @@ SSL_CTX* InitSsl(const Options& options) {
     ERR_print_errors_fp(stderr);
     std::exit(-1);
   }
+
+  SSL_CTX_set_keylog_callback(ctx, KeylogCallback);
 
   std::string key_file(options.key_file);
   std::string cert_file(options.cert_file);
